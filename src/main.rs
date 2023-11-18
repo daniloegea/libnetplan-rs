@@ -6,6 +6,7 @@ use commands::get::get;
 fn main() {
 
     let command = Command::new("netplancli")
+        .arg_required_else_help(true)
         .subcommand(
             Command::new("get")
                 .about("Get all the things \\o/")
