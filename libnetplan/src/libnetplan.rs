@@ -40,7 +40,7 @@ impl Parser {
             let mut error_message = ::std::ptr::null_mut::<NetplanError>();
             let error = netplan_parser_load_yaml_hierarchy(self.parser, path.as_ptr(), &mut error_message);
             if error == 0 {
-                if error_message != ::std::ptr::null_mut() {
+                if ! error_message.is_null() {
                     if let Ok(message) = error_get_message(error_message) {
                         return Err(LibNetplanError::NetplanFileError(message));
                     } else {
@@ -77,7 +77,7 @@ impl State {
             let mut error_message = ::std::ptr::null_mut::<NetplanError>();
             let error = netplan_state_import_parser_results(self.state, parser.parser, &mut error_message);
             if error == 0 {
-                if error_message != ::std::ptr::null_mut() {
+                if ! error_message.is_null() {
                     if let Ok(message) = error_get_message(error_message) {
                         return Err(LibNetplanError::NetplanValidationError(message));
                     } else {
@@ -91,20 +91,47 @@ impl State {
 
     pub fn dump_yaml(&self) -> NetplanResult<String>{
         let mem_file = memfd_create(&CString::new("netplan_yaml").unwrap(), MemFdCreateFlag::MFD_CLOEXEC).expect("Cannot create memory file");
-        let mut file;
         unsafe {
             netplan_state_dump_yaml(self.state, mem_file.as_raw_fd(), ::std::ptr::null_mut());
-            file = File::from_raw_fd(mem_file.as_raw_fd());
         }
+        let mut file = unsafe { File::from_raw_fd(mem_file.as_raw_fd()) };
         _ = file.seek(SeekFrom::Start(0));
         let mut yaml = String::new();
         file.read_to_string(&mut yaml).expect("Cannot read from memory file");
         Ok(yaml)
     }
 
+    pub fn dump_yaml_subtree(&self, subtree: &str) -> NetplanResult<String>{
+        let input_file = memfd_create(&CString::new("netplan_input_yaml").unwrap(), MemFdCreateFlag::MFD_CLOEXEC).expect("Cannot create memory file");
+        let output_file = memfd_create(&CString::new("netplan_output_yaml").unwrap(), MemFdCreateFlag::MFD_CLOEXEC).expect("Cannot create memory file");
+        unsafe {
+            netplan_state_dump_yaml(self.state, input_file.as_raw_fd(), ::std::ptr::null_mut());
+        }
+        let mut file = unsafe { File::from_raw_fd(input_file.as_raw_fd()) };
+        _ = file.seek(SeekFrom::Start(0));
+
+        let mut subtree_components: Vec<&str> = subtree.split('.').collect();
+        if subtree_components[0] != "network" {
+            subtree_components.insert(0, "network");
+        }
+        let subtree_string = CString::new(subtree_components.join("\t")).unwrap();
+
+        unsafe {
+            netplan_util_dump_yaml_subtree(subtree_string.as_ptr(), input_file.as_raw_fd(), output_file.as_raw_fd(), ::std::ptr::null_mut());
+        }
+
+        file = unsafe { File::from_raw_fd(output_file.as_raw_fd()) };
+        _ = file.seek(SeekFrom::Start(0));
+        let mut yaml = String::new();
+        file.read_to_string(&mut yaml).expect("Cannot read from memory file");
+        Ok(yaml)
+    }
+
+
+
 }
 
-pub fn netdef_get_id(netdef: *const NetplanNetDefinition) -> Result<String, String> {
+fn netdef_get_id(netdef: *const NetplanNetDefinition) -> Result<String, String> {
     let mut size = 128;
     loop {
         let mut name: Vec<u8> = vec![b'\0'; size];
@@ -131,7 +158,7 @@ pub fn netdef_get_id(netdef: *const NetplanNetDefinition) -> Result<String, Stri
     }
 }
 
-pub fn error_get_message(error: *mut NetplanError) -> Result<String, String> {
+fn error_get_message(error: *mut NetplanError) -> Result<String, String> {
     let mut size = 128;
     loop {
         let mut error_msg: Vec<u8> = vec![b'\0'; size];
@@ -168,7 +195,7 @@ impl Iterator for State {
 
         let netdef = unsafe {_netplan_netdef_pertype_iter_next(self.iter) };
 
-        if netdef == ::std::ptr::null_mut() {
+        if netdef.is_null() {
             return None;
         }
         

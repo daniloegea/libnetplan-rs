@@ -3,7 +3,7 @@
 
 use libnetplan::libnetplan::{Parser, State};
 
-pub fn get() {
+pub fn get(key: &String) {
     let parser = Parser::new();
     if let Err(error) = parser.load_yaml_hierarchy("/") {
         println!("error: {error:?}");
@@ -11,11 +11,13 @@ pub fn get() {
     }
 
     let state = State::new();
-    state.import_parser_state(&parser);
-    let yaml = state.dump_yaml().unwrap();
-    println!("{yaml}");
+    _ = state.import_parser_state(&parser);
 
-    for netdef in state {
-        println!("{}", netdef.name);
+    if key == "all" {
+        let yaml = state.dump_yaml().unwrap();
+        print!("{yaml}");
+    } else {
+        let yaml = state.dump_yaml_subtree(key).unwrap();
+        print!("{yaml}");
     }
 }

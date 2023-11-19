@@ -10,12 +10,13 @@ fn main() {
         .subcommand(
             Command::new("get")
                 .about("Get all the things \\o/")
-                .arg(Arg::new("key"))
+                .arg(Arg::new("key").default_value("all"))
         );
     
     match command.get_matches().subcommand() {
         Some(("get", args)) => {
-            get();
+            let key =  args.get_one::<String>("key").unwrap();
+            get(key);
         },
         _ => {}
     }
