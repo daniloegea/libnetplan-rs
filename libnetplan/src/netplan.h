@@ -1,4 +1,3 @@
-#define UINT_MAX 1
 typedef int gboolean;
 typedef unsigned int guint;
 typedef int gint;
