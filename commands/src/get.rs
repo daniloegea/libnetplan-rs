@@ -1,7 +1,5 @@
-
-
-
-use libnetplan::libnetplan::{Parser, State};
+use libnetplan::parser::Parser;
+use libnetplan::state::State;
 
 pub fn get(key: &String) {
     let parser = Parser::new();
