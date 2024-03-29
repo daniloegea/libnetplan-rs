@@ -6,6 +6,7 @@ use std::ffi::CString;
 
 use crate::libnetplan::error_get_message;
 use crate::libnetplan::netplan_parser_clear;
+use crate::libnetplan::netplan_parser_load_keyfile;
 use crate::libnetplan::netplan_parser_load_yaml;
 use crate::libnetplan::netplan_parser_load_yaml_hierarchy;
 use crate::libnetplan::netplan_parser_new;
@@ -59,7 +60,29 @@ impl Parser {
                         return Err(LibNetplanError::NetplanFileError(message));
                     } else {
                         return Err(LibNetplanError::NetplanFileError(
-                            "load YAML error".to_string()));
+                            "load YAML error".to_string(),
+                        ));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn load_keyfile(&self, filename: &str) -> NetplanResult<()> {
+        let path = CString::new(filename).unwrap();
+
+        unsafe {
+            let mut error_message = ::std::ptr::null_mut::<NetplanError>();
+            let error = netplan_parser_load_keyfile(self.parser, path.as_ptr(), &mut error_message);
+            if error == 0 {
+                if !error_message.is_null() {
+                    if let Ok(message) = error_get_message(error_message) {
+                        return Err(LibNetplanError::NetplanFileError(message));
+                    } else {
+                        return Err(LibNetplanError::NetplanFileError(
+                            "load YAML error".to_string(),
+                        ));
                     }
                 }
             }
@@ -209,14 +232,18 @@ network:
 
         let parser = Parser::new();
 
-        let filename_str = root_dir.path().join("10-config.yaml").to_str().unwrap().to_string();
+        let filename_str = root_dir
+            .path()
+            .join("10-config.yaml")
+            .to_str()
+            .unwrap()
+            .to_string();
 
         let parser_result = parser.load_yaml(&filename_str);
 
         assert!(parser_result.is_ok());
 
-        fs::remove_file(root_dir.path().join("10-config.yaml"))
-            .expect("Cannot remove file");
+        fs::remove_file(root_dir.path().join("10-config.yaml")).expect("Cannot remove file");
         root_dir.close().expect("Cannot close directory");
     }
 
@@ -245,7 +272,12 @@ network:
 
         let parser = Parser::new();
 
-        let filename_str = root_dir.path().join("10-config.yaml").to_str().unwrap().to_string();
+        let filename_str = root_dir
+            .path()
+            .join("10-config.yaml")
+            .to_str()
+            .unwrap()
+            .to_string();
 
         let parser_result = parser.load_yaml(&filename_str);
 
@@ -258,9 +290,80 @@ network:
             }
         }
 
-        fs::remove_file(root_dir.path().join("10-config.yaml"))
-            .expect("Cannot remove file");
+        fs::remove_file(root_dir.path().join("10-config.yaml")).expect("Cannot remove file");
         root_dir.close().expect("Cannot close directory");
     }
 
+    #[test]
+    fn test_load_keyfile_ok() {
+        let root_dir = tempdir().expect("Cannot create tempdir for test");
+        let file = "enp3s0.nmconnection";
+        let filename = root_dir.path().join(file);
+
+        let mut tmp_file = File::create(&filename).expect("Cannot create tempfile for test");
+
+        let keyfile = r"[connection]
+id=netplan-enp3s0
+type=ethernet
+interface-name=enp3s0
+uuid=6352c897-174c-4f61-9623-556eddad05b2
+[ipv4]
+method=manual
+address1=10.100.1.39/24"
+            .as_bytes();
+
+        tmp_file
+            .write(keyfile)
+            .expect("Cannot write YAML content for test");
+
+        let parser = Parser::new();
+
+        let filename_str = filename.to_str().unwrap().to_string();
+
+        let parser_result = parser.load_keyfile(&filename_str);
+
+        assert!(parser_result.is_ok());
+
+        fs::remove_file(filename).expect("Cannot remove file");
+        root_dir.close().expect("Cannot close directory");
+    }
+
+    #[test]
+    fn test_load_keyfile_err() {
+        let root_dir = tempdir().expect("Cannot create tempdir for test");
+        let file = "enp3s0.nmconnection";
+        let filename = root_dir.path().join(file);
+
+        let mut tmp_file = File::create(&filename).expect("Cannot create tempfile for test");
+
+        let keyfile = r"[connection]
+id=netplan-enp3s0
+type=ethernet
+interface-name=enp3s0
+[ipv4]
+method=manual
+address1=10.100.1.39/24"
+            .as_bytes();
+
+        tmp_file
+            .write(keyfile)
+            .expect("Cannot write nmconnection content for test");
+
+        let parser = Parser::new();
+
+        let filename_str = filename.to_str().unwrap().to_string();
+
+        let parser_result = parser.load_keyfile(&filename_str);
+
+        assert!(parser_result.is_err());
+
+        if let Err(error) = parser_result {
+            if let LibNetplanError::NetplanFileError(error_message) = error {
+                assert!(error_message.contains("Keyfile: cannot find connection.uuid"));
+            }
+        }
+
+        fs::remove_file(filename).expect("Cannot remove file");
+        root_dir.close().expect("Cannot close directory");
+    }
 }
