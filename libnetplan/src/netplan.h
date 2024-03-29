@@ -76,13 +76,15 @@ NetplanNetDefinition* netplan_netdef_get_bond_link(const NetplanNetDefinition* n
 NetplanNetDefinition* netplan_netdef_get_peer_link(const NetplanNetDefinition* netdef);
 NetplanNetDefinition* netplan_netdef_get_vlan_link(const NetplanNetDefinition* netdef);
 NetplanNetDefinition* netplan_netdef_get_sriov_link(const NetplanNetDefinition* netdef);
+NetplanNetDefinition* netplan_netdef_get_vrf_link(const NetplanNetDefinition* netdef);
 ssize_t netplan_netdef_get_set_name(const NetplanNetDefinition* netdef, char* out_buffer, size_t out_buffer_size);
 gboolean netplan_netdef_has_match(const NetplanNetDefinition* netdef);
-gboolean netplan_netdef_get_delay_virtual_functions_rebind(const NetplanNetDefinition* netdef);
 gboolean netplan_netdef_match_interface(
     const NetplanNetDefinition* netdef, const char* name, const char* mac, const char* driver_name);
 gboolean netplan_netdef_get_dhcp4(const NetplanNetDefinition* netdef);
 gboolean netplan_netdef_get_dhcp6(const NetplanNetDefinition* netdef);
+gboolean netplan_netdef_get_link_local_ipv4(const NetplanNetDefinition* netdef);
+gboolean netplan_netdef_get_link_local_ipv6(const NetplanNetDefinition* netdef);
 ssize_t netplan_netdef_get_macaddress(const NetplanNetDefinition* netdef, char* out_buffer, size_t out_buffer_size);
 
 // NetDefinition (internal)
@@ -90,9 +92,11 @@ ssize_t _netplan_netdef_get_embedded_switch_mode(const NetplanNetDefinition* net
 gboolean _netplan_netdef_get_sriov_vlan_filter(const NetplanNetDefinition* netdef);
 guint _netplan_netdef_get_vlan_id(const NetplanNetDefinition* netdef);
 gboolean _netplan_netdef_get_critical(const NetplanNetDefinition* netdef);
+gboolean _netplan_netdef_get_delay_virtual_functions_rebind(const NetplanNetDefinition* netdef);
 gboolean _netplan_netdef_is_trivial_compound_itf(const NetplanNetDefinition* netdef);
 int _netplan_state_get_vf_count_for_def(
     const NetplanState* np_state, const NetplanNetDefinition* netdef, NetplanError** error);
+ssize_t _netplan_netdef_get_bond_mode(const NetplanNetDefinition* netdef, char* out_buffer, size_t out_buf_size);
 
 // Iterators (internal)
 struct netdef_pertype_iter* _netplan_state_new_netdef_pertype_iter(NetplanState* np_state, const char* def_type);
