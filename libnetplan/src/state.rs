@@ -1,7 +1,3 @@
-#![allow(non_upper_case_globals)]
-#![allow(non_camel_case_types)]
-#![allow(non_snake_case)]
-
 use std::ffi::CString;
 use std::fs::File;
 use std::io::{prelude::*, Read, SeekFrom};
@@ -13,7 +9,6 @@ use nix::sys::memfd::{memfd_create, MemFdCreateFlag};
 use crate::libnetplan::_netplan_netdef_pertype_iter_next;
 use crate::libnetplan::_netplan_state_new_netdef_pertype_iter;
 use crate::libnetplan::error_get_message;
-use crate::libnetplan::netdef_get_id;
 use crate::libnetplan::netdef_pertype_iter;
 use crate::libnetplan::netplan_state_clear;
 use crate::libnetplan::netplan_state_dump_yaml;
@@ -21,10 +16,10 @@ use crate::libnetplan::netplan_state_import_parser_results;
 use crate::libnetplan::netplan_state_new;
 use crate::libnetplan::netplan_util_dump_yaml_subtree;
 use crate::libnetplan::LibNetplanError;
-use crate::libnetplan::Netdef;
 use crate::libnetplan::NetplanError;
 use crate::libnetplan::NetplanResult;
 use crate::libnetplan::NetplanState;
+use crate::netdef::{Netdef, NetdefType};
 use crate::parser::Parser;
 
 pub struct State {
@@ -134,9 +129,8 @@ impl Iterator for State {
             return None;
         }
 
-        let name_string = netdef_get_id(netdef).unwrap();
-
-        Some(Netdef { name: name_string })
+        let netdef = Netdef::from_raw_netdef(netdef);
+        Some(netdef)
     }
 }
 
@@ -149,6 +143,7 @@ impl Drop for State {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::any::{Any, TypeId};
     use std::fs::{self, File};
     use std::io::Write;
     use std::os::unix::fs::PermissionsExt;
@@ -294,7 +289,8 @@ network:
         let netdef_ids_expected = vec!["eth0", "eth1", "eth2"];
 
         for netdef in state {
-            netdef_ids.push(netdef.name.clone());
+            assert!(matches!(netdef.r#type, NetdefType::Ethernet));
+            netdef_ids.push(netdef.id.clone());
         }
 
         for expected in netdef_ids_expected {

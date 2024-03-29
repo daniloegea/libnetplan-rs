@@ -9,7 +9,32 @@ typedef struct netplan_parser NetplanParser;
 typedef struct netplan_state NetplanState;
 typedef struct netplan_net_definition NetplanNetDefinition;
 typedef enum { a, } NetplanBackend;
-typedef enum { b, } NetplanDefType;
+typedef enum {
+    NETPLAN_DEF_TYPE_NONE,
+    /* physical devices */
+    NETPLAN_DEF_TYPE_ETHERNET,
+    NETPLAN_DEF_TYPE_WIFI,
+    NETPLAN_DEF_TYPE_MODEM,
+    /* virtual devices */
+    NETPLAN_DEF_TYPE_VIRTUAL,
+    NETPLAN_DEF_TYPE_BRIDGE = NETPLAN_DEF_TYPE_VIRTUAL,
+    NETPLAN_DEF_TYPE_BOND,
+    NETPLAN_DEF_TYPE_VLAN,
+    NETPLAN_DEF_TYPE_TUNNEL,
+    NETPLAN_DEF_TYPE_PORT,
+    NETPLAN_DEF_TYPE_VRF,
+    /* Type fallback/passthrough */
+    NETPLAN_DEF_TYPE_NM,
+    NETPLAN_DEF_TYPE_DUMMY,     /* wokeignore:rule=dummy */
+    NETPLAN_DEF_TYPE_VETH,
+    /* Place holder type used to fill gaps when a netdef
+     * requires links to another netdef (such as vlan_link)
+     * but it's not strictly mandatory
+     * It's intended to be used only when renderer is NetworkManager
+     */
+    NETPLAN_DEF_TYPE_NM_PLACEHOLDER_,
+    NETPLAN_DEF_TYPE_MAX_
+} NetplanDefType;
 
 // TODO: Introduce getters for .address/.lifetime/.label to avoid exposing the raw struct
 typedef struct {

@@ -5,6 +5,8 @@
 use std::ffi::CStr;
 use std::result;
 
+use crate::netdef::NetdefType;
+
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 #[derive(Debug)]
@@ -45,6 +47,26 @@ pub(crate) fn netdef_get_id(netdef: *const NetplanNetDefinition) -> Result<Strin
     }
 }
 
+pub(crate) fn netdef_get_type(netdef: *const NetplanNetDefinition) -> NetdefType {
+    let netdef_type = unsafe { netplan_netdef_get_type(netdef) };
+
+    match netdef_type {
+        NetplanDefType_NETPLAN_DEF_TYPE_ETHERNET => NetdefType::Ethernet,
+        NetplanDefType_NETPLAN_DEF_TYPE_WIFI => NetdefType::Wifi,
+        NetplanDefType_NETPLAN_DEF_TYPE_MODEM => NetdefType::Modem,
+        NetplanDefType_NETPLAN_DEF_TYPE_BRIDGE => NetdefType::Bridge,
+        NetplanDefType_NETPLAN_DEF_TYPE_BOND => NetdefType::Bond,
+        NetplanDefType_NETPLAN_DEF_TYPE_VLAN => NetdefType::Vlan,
+        NetplanDefType_NETPLAN_DEF_TYPE_TUNNEL => NetdefType::Tunnel,
+        NetplanDefType_NETPLAN_DEF_TYPE_PORT => NetdefType::Port,
+        NetplanDefType_NETPLAN_DEF_TYPE_VRF => NetdefType::Vrf,
+        NetplanDefType_NETPLAN_DEF_TYPE_NM => NetdefType::Nm,
+        NetplanDefType_NETPLAN_DEF_TYPE_DUMMY => NetdefType::Dummy,
+        NetplanDefType_NETPLAN_DEF_TYPE_VETH => NetdefType::Veth,
+        _ => NetdefType::None,
+    }
+}
+
 pub fn error_get_message(error: *mut NetplanError) -> Result<String, String> {
     let mut size = 128;
     loop {
@@ -72,8 +94,4 @@ pub fn error_get_message(error: *mut NetplanError) -> Result<String, String> {
 
         return Ok(error_msg_string);
     }
-}
-
-pub struct Netdef {
-    pub name: String,
 }
