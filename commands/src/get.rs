@@ -9,7 +9,7 @@ pub fn get(key: &String) {
     }
 
     let state = State::new();
-    _ = state.import_parser_state(&parser);
+    _ = state.import_parser_state(parser);
 
     if key == "all" {
         let yaml = state.dump_yaml().unwrap();

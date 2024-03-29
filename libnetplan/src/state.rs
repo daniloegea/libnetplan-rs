@@ -40,7 +40,7 @@ impl State {
         }
     }
 
-    pub fn import_parser_state(&self, parser: &Parser) -> NetplanResult<()> {
+    pub fn import_parser_state(&self, parser: Parser) -> NetplanResult<()> {
         unsafe {
             let mut error_message = ::std::ptr::null_mut::<NetplanError>();
             let error =
