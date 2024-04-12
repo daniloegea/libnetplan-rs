@@ -5,7 +5,6 @@ use std::os::fd::FromRawFd;
 use std::os::unix::io::AsRawFd;
 use std::ptr::null_mut;
 
-use crate::libnetplan::error_get_message;
 use crate::libnetplan::netdef_pertype_iter;
 use crate::libnetplan::netplan_state_clear;
 use crate::libnetplan::netplan_state_dump_yaml;
@@ -20,6 +19,7 @@ use crate::libnetplan::{_netplan_netdef_pertype_iter_next, netplan_memfd_create}
 use crate::libnetplan::{
     _netplan_state_new_netdef_pertype_iter, netplan_state_update_yaml_hierarchy,
 };
+use crate::libnetplan::{error_get_message, netplan_state_write_yaml_file};
 use crate::netdef::{Netdef, NetdefType};
 use crate::parser::Parser;
 
@@ -124,6 +124,32 @@ impl State {
             }
         }
 
+        Ok(())
+    }
+
+    pub fn write_yaml_file(&self, filename: &str, root_dir: &str) -> NetplanResult<()> {
+        let filename_cstr = CString::new(filename).unwrap();
+        let rootdir_cstr = CString::new(root_dir).unwrap();
+        unsafe {
+            let mut error_message = ::std::ptr::null_mut::<NetplanError>();
+            let error = netplan_state_write_yaml_file(
+                self.state,
+                filename_cstr.as_ptr(),
+                rootdir_cstr.as_ptr(),
+                &mut error_message,
+            );
+            if error == 0 {
+                if !error_message.is_null() {
+                    if let Ok(message) = error_get_message(error_message) {
+                        return Err(LibNetplanError::NetplanFileError(message));
+                    } else {
+                        return Err(LibNetplanError::NetplanFileError(
+                            "load hierarchy error".to_string(),
+                        ));
+                    }
+                }
+            }
+        }
         Ok(())
     }
 }
