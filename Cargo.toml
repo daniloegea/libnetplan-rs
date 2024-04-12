@@ -1,13 +1,15 @@
 [package]
-name = "netplan-rs"
-version = "0.1.0"
+name = "libnetplan"
+version = "1.0.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[workspace]
-members = ["commands", "libnetplan"]
-
 [dependencies]
-clap = "4.4"
-commands = { path = "./commands" }
+nix = { version = "0.28.0", features = ["fs"] }
+
+[build-dependencies]
+bindgen = "0.69.4"
+
+[dev-dependencies]
+tempfile = "3.10.1"
