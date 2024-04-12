@@ -10,7 +10,7 @@ jobs:
       image: ubuntu:noble
     steps:
       - uses: actions/checkout@v2
-      - run: apt update && apt -y install libnetplan-dev curl wget build-essential
+      - run: apt update && apt -y install libnetplan-dev curl wget build-essential libclang1 libclang-dev
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
