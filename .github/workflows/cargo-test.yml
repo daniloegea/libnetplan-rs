@@ -6,8 +6,11 @@ jobs:
   build_and_test:
     name: libnetplan-rs
     runs-on: ubuntu-latest
+    container:
+      image: ubuntu:noble
     steps:
       - uses: actions/checkout@v2
+      - run: apt update && apt -y install libnetplan-dev
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
