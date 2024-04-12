@@ -118,7 +118,9 @@ impl State {
             );
 
             if ret == 0 {
-                return Err(LibNetplanError::NetplanFileError("update_yaml_hierarchy failed".to_string()));
+                return Err(LibNetplanError::NetplanFileError(
+                    "update_yaml_hierarchy failed".to_string(),
+                ));
             }
         }
 
