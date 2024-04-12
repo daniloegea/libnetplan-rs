@@ -100,13 +100,14 @@ impl Parser {
 
         let mut file = File::from(memfd);
         let _ = file.write(yaml.as_bytes());
+        let _ = file.flush();
         let _ = file.rewind();
 
         unsafe {
             let ret =
                 netplan_parser_load_nullable_fields(self.parser, file.as_raw_fd(), null_mut());
 
-            if ret != 0 {
+            if ret != 1 {
                 return Err(LibNetplanError::NetplanFileError(
                     "load_nullable_fields failed".to_string(),
                 ));
@@ -122,6 +123,7 @@ impl Parser {
 
         let mut file = File::from(memfd);
         let _ = file.write(yaml.as_bytes());
+        let _ = file.flush();
         let _ = file.rewind();
 
         unsafe {
@@ -151,6 +153,9 @@ impl Drop for Parser {
 
 #[cfg(test)]
 mod tests {
+    use crate::state::State;
+    use crate::utils::netplan_create_yaml_patch;
+
     use super::*;
     use std::fs::DirBuilder;
     use std::fs::{self, File};
@@ -417,5 +422,57 @@ address1=10.100.1.39/24"
 
         fs::remove_file(filename).expect("Cannot remove file");
         root_dir.close().expect("Cannot close directory");
+    }
+
+    #[test]
+    fn test_load_nullable_fields() {
+        let parser = Parser::new();
+
+        let patch = netplan_create_yaml_patch("network.ethernets.eth0", "null").unwrap();
+
+        println!("{patch}");
+
+        let ret = parser.load_nullable_fields(&patch);
+        if let Err(_) = ret {
+            assert!(false);
+        }
+
+        let root_dir = tempdir().expect("Cannot create tempdir for test");
+        let filename = root_dir.path().join("10-config.yaml");
+
+        let mut tmp_file = File::create(filename).expect("Cannot create tempfile for test");
+        let mut perms = tmp_file.metadata().unwrap().permissions();
+        perms.set_mode(0o0600);
+        tmp_file
+            .set_permissions(perms)
+            .expect("Cannot set permission to 600");
+
+        let yaml = r"
+network:
+  ethernets:
+    eth1: {}
+    eth0: {}"
+            .as_bytes();
+
+        tmp_file
+            .write(yaml)
+            .expect("Cannot write YAML content for test");
+
+        let filename_str = root_dir
+            .path()
+            .join("10-config.yaml")
+            .to_str()
+            .unwrap()
+            .to_string();
+
+        parser.load_yaml(&filename_str).unwrap();
+
+        let state = State::new();
+        state.import_parser_state(parser).unwrap();
+
+        let dump = state.dump_yaml().unwrap();
+
+        // eth0 is gone
+        assert_eq!(dump, "network:\n  version: 2\n  ethernets:\n    eth1: {}\n");
     }
 }
