@@ -13,6 +13,7 @@ use crate::libnetplan::netplan_parser_load_keyfile;
 use crate::libnetplan::netplan_parser_load_nullable_fields;
 use crate::libnetplan::netplan_parser_load_nullable_overrides;
 use crate::libnetplan::netplan_parser_load_yaml;
+use crate::libnetplan::netplan_parser_load_yaml_from_fd;
 use crate::libnetplan::netplan_parser_load_yaml_hierarchy;
 use crate::libnetplan::netplan_parser_new;
 use crate::libnetplan::LibNetplanError;
@@ -67,6 +68,29 @@ impl Parser {
                         return Err(LibNetplanError::NetplanFileError(
                             "load YAML error".to_string(),
                         ));
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    pub fn load_yaml_from_string(&self, yaml: &str) -> NetplanResult<()> {
+        let memfd = netplan_memfd_create().unwrap();
+
+        let mut file = File::from(memfd);
+        let _ = file.write(yaml.as_bytes());
+        let _ = file.flush();
+        let _ = file.rewind();
+
+        unsafe {
+            let mut error_message = ::std::ptr::null_mut::<NetplanError>();
+            let error =
+                netplan_parser_load_yaml_from_fd(self.parser, file.as_raw_fd(), &mut error_message);
+            if error == 0 {
+                if !error_message.is_null() {
+                    if let Ok(_message) = error_get_message(error_message) {
+                        return Err(LibNetplanError::NetplanParserError);
                     }
                 }
             }
@@ -349,6 +373,26 @@ network:
 
         fs::remove_file(root_dir.path().join("10-config.yaml")).expect("Cannot remove file");
         root_dir.close().expect("Cannot close directory");
+    }
+
+    #[test]
+    fn test_load_yaml_from_string() {
+        let yaml = r"
+network:
+  ethernets:
+    eth0:
+      dhcp4: true";
+
+        let parser = Parser::new();
+        let parser_result = parser.load_yaml_from_string(&yaml);
+
+        let state = State::new();
+        state.import_parser_state(parser).unwrap();
+        let dump = state.dump_yaml().unwrap();
+        assert_eq!(
+            dump,
+            "network:\n  version: 2\n  ethernets:\n    eth0:\n      dhcp4: true\n"
+        );
     }
 
     #[test]
