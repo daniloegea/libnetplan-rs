@@ -98,10 +98,10 @@ pub fn error_get_message(error: *mut NetplanError) -> Result<String, String> {
 }
 
 /* Simple wrapper around libc's memfd_create to avoid importing other crates */
-pub(crate) fn netplan_memfd_create(name: &str, flags: u32) -> Result<OwnedFd, String> {
+pub(crate) fn netplan_memfd_create() -> Result<OwnedFd, String> {
     unsafe {
-        let name_cstr = CStr::from_ptr(name.as_ptr() as *const i8);
-        let ret = memfd_create(name_cstr.as_ptr(), flags);
+        let name_cstr = CStr::from_ptr("netplan_memfd".as_ptr() as *const i8);
+        let ret = memfd_create(name_cstr.as_ptr(), 0);
 
         if ret >= 0 {
             return Ok(OwnedFd::from_raw_fd(ret));

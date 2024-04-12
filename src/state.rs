@@ -54,7 +54,7 @@ impl State {
     }
 
     pub fn dump_yaml(&self) -> NetplanResult<String> {
-        let mem_file = netplan_memfd_create("netplan_yaml", 0).expect("Cannot create memory file");
+        let mem_file = netplan_memfd_create().expect("Cannot create memory file");
         unsafe {
             netplan_state_dump_yaml(self.state, mem_file.as_raw_fd(), ::std::ptr::null_mut());
         }
@@ -68,9 +68,9 @@ impl State {
 
     pub fn dump_yaml_subtree(&self, subtree: &str) -> NetplanResult<String> {
         let input_file =
-            netplan_memfd_create("netplan_input_yaml", 0).expect("Cannot create memory file");
+            netplan_memfd_create().expect("Cannot create memory file");
         let output_file =
-            netplan_memfd_create("netplan_output_yaml", 0).expect("Cannot create memory file");
+            netplan_memfd_create().expect("Cannot create memory file");
         unsafe {
             netplan_state_dump_yaml(self.state, input_file.as_raw_fd(), ::std::ptr::null_mut());
         }
