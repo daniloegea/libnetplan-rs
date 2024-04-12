@@ -2,7 +2,7 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::os::fd::{FromRawFd, OwnedFd};
 use std::result;
 
@@ -100,7 +100,7 @@ pub fn error_get_message(error: *mut NetplanError) -> Result<String, String> {
 /* Simple wrapper around libc's memfd_create to avoid importing other crates */
 pub(crate) fn netplan_memfd_create() -> Result<OwnedFd, String> {
     unsafe {
-        let name_cstr = CStr::from_ptr("netplan_memfd".as_ptr() as *const i8);
+        let name_cstr = CString::new("netplan_memfd").unwrap();
         let ret = memfd_create(name_cstr.as_ptr(), 0);
 
         if ret >= 0 {

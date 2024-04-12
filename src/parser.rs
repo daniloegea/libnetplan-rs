@@ -1,8 +1,17 @@
 use std::ffi::CString;
+use std::fs::File;
+use std::io::Seek;
+use std::io::Write;
+use std::os::fd::AsRawFd;
+use std::os::fd::FromRawFd;
+use std::ptr::null_mut;
 
 use crate::libnetplan::error_get_message;
+use crate::libnetplan::netplan_memfd_create;
 use crate::libnetplan::netplan_parser_clear;
 use crate::libnetplan::netplan_parser_load_keyfile;
+use crate::libnetplan::netplan_parser_load_nullable_fields;
+use crate::libnetplan::netplan_parser_load_nullable_overrides;
 use crate::libnetplan::netplan_parser_load_yaml;
 use crate::libnetplan::netplan_parser_load_yaml_hierarchy;
 use crate::libnetplan::netplan_parser_new;
@@ -83,6 +92,53 @@ impl Parser {
                 }
             }
         }
+        Ok(())
+    }
+
+    pub fn load_nullable_fields(&self, yaml: &str) -> NetplanResult<()> {
+        let memfd = netplan_memfd_create().unwrap();
+
+        let mut file = File::from(memfd);
+        let _ = file.write(yaml.as_bytes());
+        let _ = file.rewind();
+
+        unsafe {
+            let ret =
+                netplan_parser_load_nullable_fields(self.parser, file.as_raw_fd(), null_mut());
+
+            if ret != 0 {
+                return Err(LibNetplanError::NetplanFileError(
+                    "load_nullable_fields failed".to_string(),
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn load_nullable_overrides(&self, yaml: &str, constraints: &str) -> NetplanResult<()> {
+        let memfd = netplan_memfd_create().unwrap();
+        let constraints_cstr = CString::new(constraints).unwrap();
+
+        let mut file = File::from(memfd);
+        let _ = file.write(yaml.as_bytes());
+        let _ = file.rewind();
+
+        unsafe {
+            let ret = netplan_parser_load_nullable_overrides(
+                self.parser,
+                file.as_raw_fd(),
+                constraints_cstr.as_ptr(),
+                null_mut(),
+            );
+
+            if ret != 0 {
+                return Err(LibNetplanError::NetplanFileError(
+                    "load_nullable_overrides failed".to_string(),
+                ));
+            }
+        }
+
         Ok(())
     }
 }

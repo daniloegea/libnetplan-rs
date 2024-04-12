@@ -3,8 +3,8 @@ use std::fs::File;
 use std::io::{prelude::*, Read, SeekFrom};
 use std::os::fd::FromRawFd;
 use std::os::unix::io::AsRawFd;
+use std::ptr::null_mut;
 
-use crate::libnetplan::_netplan_state_new_netdef_pertype_iter;
 use crate::libnetplan::error_get_message;
 use crate::libnetplan::netdef_pertype_iter;
 use crate::libnetplan::netplan_state_clear;
@@ -17,6 +17,9 @@ use crate::libnetplan::NetplanError;
 use crate::libnetplan::NetplanResult;
 use crate::libnetplan::NetplanState;
 use crate::libnetplan::{_netplan_netdef_pertype_iter_next, netplan_memfd_create};
+use crate::libnetplan::{
+    _netplan_state_new_netdef_pertype_iter, netplan_state_update_yaml_hierarchy,
+};
 use crate::netdef::{Netdef, NetdefType};
 use crate::parser::Parser;
 
@@ -67,10 +70,8 @@ impl State {
     }
 
     pub fn dump_yaml_subtree(&self, subtree: &str) -> NetplanResult<String> {
-        let input_file =
-            netplan_memfd_create().expect("Cannot create memory file");
-        let output_file =
-            netplan_memfd_create().expect("Cannot create memory file");
+        let input_file = netplan_memfd_create().expect("Cannot create memory file");
+        let output_file = netplan_memfd_create().expect("Cannot create memory file");
         unsafe {
             netplan_state_dump_yaml(self.state, input_file.as_raw_fd(), ::std::ptr::null_mut());
         }
@@ -98,6 +99,30 @@ impl State {
         file.read_to_string(&mut yaml)
             .expect("Cannot read from memory file");
         Ok(yaml)
+    }
+
+    pub fn update_yaml_hierarchy(
+        &self,
+        default_filename: &str,
+        root_dir: &str,
+    ) -> NetplanResult<()> {
+        let default_filename_cstr = CString::new(default_filename).unwrap();
+        let root_dir_cstr = CString::new(root_dir).unwrap();
+
+        unsafe {
+            let ret = netplan_state_update_yaml_hierarchy(
+                self.state,
+                default_filename_cstr.as_ptr(),
+                root_dir_cstr.as_ptr(),
+                null_mut(),
+            );
+
+            if ret == 0 {
+                return Err(LibNetplanError::NetplanFileError("update_yaml_hierarchy failed".to_string()));
+            }
+        }
+
+        Ok(())
     }
 }
 
