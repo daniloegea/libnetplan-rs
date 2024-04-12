@@ -146,3 +146,7 @@ gboolean netplan_util_create_yaml_patch(const char* conf_obj_path, const char* o
 // Names (internal)
 const char* netplan_backend_name(NetplanBackend val);
 const char* netplan_def_type_name(NetplanDefType val);
+
+
+// libc
+int memfd_create(const char *name, unsigned int flags);

@@ -3,6 +3,7 @@
 #![allow(non_snake_case)]
 
 use std::ffi::CStr;
+use std::os::fd::{FromRawFd, OwnedFd};
 use std::result;
 
 use crate::netdef::NetdefType;
@@ -93,5 +94,18 @@ pub fn error_get_message(error: *mut NetplanError) -> Result<String, String> {
         let error_msg_string = error_msg_raw.to_string_lossy().to_string();
 
         return Ok(error_msg_string);
+    }
+}
+
+/* Simple wrapper around libc's memfd_create to avoid importing other crates */
+pub(crate) fn netplan_memfd_create(name: &str, flags: u32) -> Result<OwnedFd, String> {
+    unsafe {
+        let ret = memfd_create(name.as_ptr() as *const i8, flags);
+
+        if ret >= 0 {
+            return Ok(OwnedFd::from_raw_fd(ret));
+        } else {
+            return Err("memfd_create failed".to_string());
+        }
     }
 }
