@@ -248,6 +248,30 @@ network:
     }
 
     #[test]
+    fn test_dump_yaml() {
+        let yaml = r"
+network:
+  ethernets:
+    eth0:
+      dhcp4: true";
+
+        let parser = create_parser(yaml);
+
+        let state = State::new();
+
+        if let Err(_) = state.import_parser_state(parser) {
+            assert!(false, "load parser results failed");
+        }
+
+        let dump = state.dump_yaml();
+
+        assert_eq!(
+            "network:\n  version: 2\n  ethernets:\n    eth0:\n      dhcp4: true\n",
+            dump.unwrap()
+        );
+    }
+
+    #[test]
     fn test_state_iterator() {
         let yaml = r"
 network:
