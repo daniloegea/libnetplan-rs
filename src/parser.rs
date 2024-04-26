@@ -21,7 +21,7 @@ use crate::libnetplan::NetplanParser;
 use crate::libnetplan::NetplanResult;
 
 pub struct Parser {
-    pub(crate) parser: *mut NetplanParser,
+    parser: *mut NetplanParser,
 }
 
 impl Parser {
@@ -31,8 +31,12 @@ impl Parser {
         }
     }
 
+    pub fn as_mut_ptr(&mut self) -> *mut NetplanParser {
+        self.parser
+    }
+
     // TODO: implement all the possible errors it can return
-    pub fn load_yaml_hierarchy(&self, root_dir: &str) -> NetplanResult<()> {
+    pub fn load_yaml_hierarchy(&mut self, root_dir: &str) -> NetplanResult<()> {
         let path = CString::new(root_dir).unwrap();
         unsafe {
             let mut error_message = ::std::ptr::null_mut::<NetplanError>();
@@ -40,7 +44,7 @@ impl Parser {
                 netplan_parser_load_yaml_hierarchy(self.parser, path.as_ptr(), &mut error_message);
             if error == 0 {
                 if !error_message.is_null() {
-                    if let Ok(message) = error_get_message(error_message) {
+                    if let Some(message) = error_get_message(error_message) {
                         return Err(LibNetplanError::NetplanFileError(message));
                     } else {
                         return Err(LibNetplanError::NetplanFileError(
@@ -53,7 +57,7 @@ impl Parser {
         Ok(())
     }
 
-    pub fn load_yaml(&self, filename: &str) -> NetplanResult<()> {
+    pub fn load_yaml(&mut self, filename: &str) -> NetplanResult<()> {
         let path = CString::new(filename).unwrap();
 
         unsafe {
@@ -61,7 +65,7 @@ impl Parser {
             let error = netplan_parser_load_yaml(self.parser, path.as_ptr(), &mut error_message);
             if error == 0 {
                 if !error_message.is_null() {
-                    if let Ok(message) = error_get_message(error_message) {
+                    if let Some(message) = error_get_message(error_message) {
                         return Err(LibNetplanError::NetplanFileError(message));
                     } else {
                         return Err(LibNetplanError::NetplanFileError(
@@ -74,7 +78,7 @@ impl Parser {
         Ok(())
     }
 
-    pub fn load_yaml_from_string(&self, yaml: &str) -> NetplanResult<()> {
+    pub fn load_yaml_from_string(&mut self, yaml: &str) -> NetplanResult<()> {
         let memfd = netplan_memfd_create().unwrap();
 
         let mut file = File::from(memfd);
@@ -88,7 +92,7 @@ impl Parser {
                 netplan_parser_load_yaml_from_fd(self.parser, file.as_raw_fd(), &mut error_message);
             if error == 0 {
                 if !error_message.is_null() {
-                    if let Ok(_message) = error_get_message(error_message) {
+                    if let Some(_message) = error_get_message(error_message) {
                         return Err(LibNetplanError::NetplanParserError);
                     }
                 }
@@ -97,7 +101,7 @@ impl Parser {
         Ok(())
     }
 
-    pub fn load_keyfile(&self, filename: &str) -> NetplanResult<()> {
+    pub fn load_keyfile(&mut self, filename: &str) -> NetplanResult<()> {
         let path = CString::new(filename).unwrap();
 
         unsafe {
@@ -105,7 +109,7 @@ impl Parser {
             let error = netplan_parser_load_keyfile(self.parser, path.as_ptr(), &mut error_message);
             if error == 0 {
                 if !error_message.is_null() {
-                    if let Ok(message) = error_get_message(error_message) {
+                    if let Some(message) = error_get_message(error_message) {
                         return Err(LibNetplanError::NetplanFileError(message));
                     } else {
                         return Err(LibNetplanError::NetplanFileError(
@@ -118,7 +122,7 @@ impl Parser {
         Ok(())
     }
 
-    pub fn load_nullable_fields(&self, yaml: &str) -> NetplanResult<()> {
+    pub fn load_nullable_fields(&mut self, yaml: &str) -> NetplanResult<()> {
         let memfd = netplan_memfd_create().unwrap();
 
         let mut file = File::from(memfd);
@@ -140,7 +144,7 @@ impl Parser {
         Ok(())
     }
 
-    pub fn load_nullable_overrides(&self, yaml: &str, constraints: &str) -> NetplanResult<()> {
+    pub fn load_nullable_overrides(&mut self, yaml: &str, constraints: &str) -> NetplanResult<()> {
         let memfd = netplan_memfd_create().unwrap();
         let constraints_cstr = CString::new(constraints).unwrap();
 
@@ -188,8 +192,8 @@ mod tests {
 
     #[test]
     fn test_create_a_parser() {
-        let parser = Parser::new();
-        assert!(parser.parser != ::std::ptr::null_mut());
+        let mut parser = Parser::new();
+        assert!(parser.as_mut_ptr() != ::std::ptr::null_mut());
     }
 
     #[test]
@@ -220,7 +224,7 @@ network:
             .write(yaml)
             .expect("Cannot write YAML content for test");
 
-        let parser = Parser::new();
+        let mut parser = Parser::new();
 
         let root_dir_string = root_dir.path().to_str().unwrap().to_string();
 
@@ -264,7 +268,7 @@ network:
             .write(yaml)
             .expect("Cannot write YAML content for test");
 
-        let parser = Parser::new();
+        let mut parser = Parser::new();
 
         let root_dir_string = root_dir.path().to_str().unwrap().to_string();
 
@@ -310,7 +314,7 @@ network:
             .write(yaml)
             .expect("Cannot write YAML content for test");
 
-        let parser = Parser::new();
+        let mut parser = Parser::new();
 
         let filename_str = root_dir
             .path()
@@ -350,7 +354,7 @@ network:
             .write(yaml)
             .expect("Cannot write YAML content for test");
 
-        let parser = Parser::new();
+        let mut parser = Parser::new();
 
         let filename_str = root_dir
             .path()
@@ -382,7 +386,7 @@ network:
     eth0:
       dhcp4: true";
 
-        let parser = Parser::new();
+        let mut parser = Parser::new();
         let _ = parser.load_yaml_from_string(&yaml);
 
         let state = State::new();
@@ -416,7 +420,7 @@ address1=10.100.1.39/24"
             .write(keyfile)
             .expect("Cannot write YAML content for test");
 
-        let parser = Parser::new();
+        let mut parser = Parser::new();
 
         let filename_str = filename.to_str().unwrap().to_string();
 
@@ -449,7 +453,7 @@ address1=10.100.1.39/24"
             .write(keyfile)
             .expect("Cannot write nmconnection content for test");
 
-        let parser = Parser::new();
+        let mut parser = Parser::new();
 
         let filename_str = filename.to_str().unwrap().to_string();
 
@@ -469,7 +473,7 @@ address1=10.100.1.39/24"
 
     #[test]
     fn test_load_nullable_fields() {
-        let parser = Parser::new();
+        let mut parser = Parser::new();
 
         let patch = netplan_create_yaml_patch("network.ethernets.eth0", "null").unwrap();
 

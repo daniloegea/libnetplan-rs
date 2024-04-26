@@ -36,14 +36,17 @@ impl State {
         }
     }
 
-    pub fn import_parser_state(&self, parser: Parser) -> NetplanResult<()> {
+    pub fn import_parser_state(&self, mut parser: Parser) -> NetplanResult<()> {
         unsafe {
             let mut error_message = ::std::ptr::null_mut::<NetplanError>();
-            let error =
-                netplan_state_import_parser_results(self.state, parser.parser, &mut error_message);
+            let error = netplan_state_import_parser_results(
+                self.state,
+                parser.as_mut_ptr(),
+                &mut error_message,
+            );
             if error == 0 {
                 if !error_message.is_null() {
-                    if let Ok(message) = error_get_message(error_message) {
+                    if let Some(message) = error_get_message(error_message) {
                         return Err(LibNetplanError::NetplanValidationError(message));
                     } else {
                         return Err(LibNetplanError::NetplanValidationError(
@@ -140,7 +143,7 @@ impl State {
             );
             if error == 0 {
                 if !error_message.is_null() {
-                    if let Ok(message) = error_get_message(error_message) {
+                    if let Some(message) = error_get_message(error_message) {
                         return Err(LibNetplanError::NetplanFileError(message));
                     } else {
                         return Err(LibNetplanError::NetplanFileError(
@@ -218,7 +221,7 @@ mod tests {
             .write(yaml)
             .expect("Cannot write YAML content for test");
 
-        let parser = Parser::new();
+        let mut parser = Parser::new();
 
         let filename_str = root_dir
             .path()

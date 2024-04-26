@@ -21,15 +21,42 @@ pub enum LibNetplanError {
 pub type NetplanResult<T> = result::Result<T, LibNetplanError>;
 
 pub(crate) fn netdef_get_id(netdef: *const NetplanNetDefinition) -> Result<String, String> {
+    let name_string = unsafe {
+        copy_string_realloc_call(
+            |netdef, buffer, len| {
+                netplan_netdef_get_id(netdef as *const netplan_net_definition, buffer, len)
+            },
+            netdef as *const i8,
+        )
+        .unwrap()
+    };
+    Ok(name_string)
+}
+
+pub(crate) fn error_get_message(error: *mut GError) -> Option<String> {
+    let name_string = unsafe {
+        copy_string_realloc_call(
+            |error, buffer, len| netplan_error_message(error as *mut GError, buffer, len),
+            error as *const i8,
+        )
+    };
+
+    match name_string {
+        Ok(message) => Some(message),
+        Err(_) => None,
+    }
+}
+
+fn copy_string_realloc_call<F>(call: F, ptr: *const i8) -> Result<String, String>
+where
+    F: FnOnce(*const i8, *mut i8, usize) -> isize + Copy,
+{
     let mut size = 128;
     loop {
         let mut name: Vec<u8> = vec![b'\0'; size];
-        let copied =
-            unsafe { netplan_netdef_get_id(netdef, name.as_mut_ptr() as *mut i8, name.len()) }
-                as isize;
+        let copied = call(ptr, name.as_mut_ptr() as *mut i8, name.len());
 
         if copied == 0 {
-            println!("copied is zero");
             return Err("copied is zero".to_string());
         }
 
@@ -69,39 +96,11 @@ pub(crate) fn netdef_get_type(netdef: *const NetplanNetDefinition) -> NetdefType
     }
 }
 
-pub fn error_get_message(error: *mut NetplanError) -> Result<String, String> {
-    let mut size = 128;
-    loop {
-        let mut error_msg: Vec<u8> = vec![b'\0'; size];
-        let copied = unsafe {
-            netplan_error_message(error, error_msg.as_mut_ptr() as *mut i8, error_msg.len())
-        } as isize;
-
-        if copied == 0 {
-            println!("copied is zero");
-            return Err("copied is zero".to_string());
-        }
-
-        if copied == -2 {
-            size *= 2;
-
-            if size > 1048576 {
-                return Err("data is too big".to_string());
-            }
-            continue;
-        }
-
-        let error_msg_raw = CStr::from_bytes_until_nul(&error_msg).unwrap();
-        let error_msg_string = error_msg_raw.to_string_lossy().to_string();
-
-        return Ok(error_msg_string);
-    }
-}
-
 /* Simple wrapper around libc's memfd_create to avoid importing other crates */
 pub(crate) fn netplan_memfd_create() -> Result<OwnedFd, String> {
     unsafe {
         let name_cstr = CString::new("netplan_memfd").unwrap();
+        // memfd_create() is defined in netplan.h
         let ret = memfd_create(name_cstr.as_ptr(), 0);
 
         if ret >= 0 {
