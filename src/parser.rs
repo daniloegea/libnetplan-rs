@@ -3,9 +3,7 @@ use std::fs::File;
 use std::io::Seek;
 use std::io::Write;
 use std::os::fd::AsRawFd;
-use std::ptr::null_mut;
 
-use crate::libnetplan::error_get_message;
 use crate::libnetplan::netplan_memfd_create;
 use crate::libnetplan::netplan_parser_clear;
 use crate::libnetplan::netplan_parser_load_keyfile;
@@ -17,6 +15,7 @@ use crate::libnetplan::netplan_parser_load_yaml_hierarchy;
 use crate::libnetplan::netplan_parser_new;
 use crate::libnetplan::LibNetplanError;
 use crate::libnetplan::NetplanError;
+use crate::libnetplan::NetplanErrorDomains;
 use crate::libnetplan::NetplanParser;
 use crate::libnetplan::NetplanResult;
 
@@ -35,46 +34,37 @@ impl Parser {
         self.parser
     }
 
-    // TODO: implement all the possible errors it can return
     pub fn load_yaml_hierarchy(&mut self, root_dir: &str) -> NetplanResult<()> {
         let path = CString::new(root_dir).unwrap();
-        unsafe {
-            let mut error_message = ::std::ptr::null_mut::<NetplanError>();
-            let error =
-                netplan_parser_load_yaml_hierarchy(self.parser, path.as_ptr(), &mut error_message);
-            if error == 0 {
-                if !error_message.is_null() {
-                    if let Some(message) = error_get_message(error_message) {
-                        return Err(LibNetplanError::NetplanFileError(message));
-                    } else {
-                        return Err(LibNetplanError::NetplanFileError(
-                            "load hierarchy error".to_string(),
-                        ));
-                    }
-                }
+        let mut netplan_error = ::std::ptr::null_mut::<NetplanError>();
+
+        let ret = unsafe {
+            netplan_parser_load_yaml_hierarchy(self.as_mut_ptr(), path.as_ptr(), &mut netplan_error)
+        };
+
+        if ret == 0 && !netplan_error.is_null() {
+            if let Some(error) = LibNetplanError::try_from_raw_error(netplan_error) {
+                return Err(NetplanErrorDomains::from_libnetplan_error(&error));
             }
         }
+
         Ok(())
     }
 
     pub fn load_yaml(&mut self, filename: &str) -> NetplanResult<()> {
         let path = CString::new(filename).unwrap();
+        let mut netplan_error = ::std::ptr::null_mut::<NetplanError>();
 
-        unsafe {
-            let mut error_message = ::std::ptr::null_mut::<NetplanError>();
-            let error = netplan_parser_load_yaml(self.parser, path.as_ptr(), &mut error_message);
-            if error == 0 {
-                if !error_message.is_null() {
-                    if let Some(message) = error_get_message(error_message) {
-                        return Err(LibNetplanError::NetplanFileError(message));
-                    } else {
-                        return Err(LibNetplanError::NetplanFileError(
-                            "load YAML error".to_string(),
-                        ));
-                    }
-                }
+        let ret = unsafe {
+            netplan_parser_load_yaml(self.as_mut_ptr(), path.as_ptr(), &mut netplan_error)
+        };
+
+        if ret == 0 && !netplan_error.is_null() {
+            if let Some(error) = LibNetplanError::try_from_raw_error(netplan_error) {
+                return Err(NetplanErrorDomains::from_libnetplan_error(&error));
             }
         }
+
         Ok(())
     }
 
@@ -86,39 +76,34 @@ impl Parser {
         let _ = file.flush();
         let _ = file.rewind();
 
-        unsafe {
-            let mut error_message = ::std::ptr::null_mut::<NetplanError>();
-            let error =
-                netplan_parser_load_yaml_from_fd(self.parser, file.as_raw_fd(), &mut error_message);
-            if error == 0 {
-                if !error_message.is_null() {
-                    if let Some(_message) = error_get_message(error_message) {
-                        return Err(LibNetplanError::NetplanParserError);
-                    }
-                }
+        let mut netplan_error = ::std::ptr::null_mut::<NetplanError>();
+
+        let ret = unsafe {
+            netplan_parser_load_yaml_from_fd(self.parser, file.as_raw_fd(), &mut netplan_error)
+        };
+
+        if ret == 0 && !netplan_error.is_null() {
+            if let Some(error) = LibNetplanError::try_from_raw_error(netplan_error) {
+                return Err(NetplanErrorDomains::from_libnetplan_error(&error));
             }
         }
+
         Ok(())
     }
 
     pub fn load_keyfile(&mut self, filename: &str) -> NetplanResult<()> {
         let path = CString::new(filename).unwrap();
+        let mut netplan_error = ::std::ptr::null_mut::<NetplanError>();
 
-        unsafe {
-            let mut error_message = ::std::ptr::null_mut::<NetplanError>();
-            let error = netplan_parser_load_keyfile(self.parser, path.as_ptr(), &mut error_message);
-            if error == 0 {
-                if !error_message.is_null() {
-                    if let Some(message) = error_get_message(error_message) {
-                        return Err(LibNetplanError::NetplanFileError(message));
-                    } else {
-                        return Err(LibNetplanError::NetplanFileError(
-                            "load YAML error".to_string(),
-                        ));
-                    }
-                }
+        let ret =
+            unsafe { netplan_parser_load_keyfile(self.parser, path.as_ptr(), &mut netplan_error) };
+
+        if ret == 0 && !netplan_error.is_null() {
+            if let Some(error) = LibNetplanError::try_from_raw_error(netplan_error) {
+                return Err(NetplanErrorDomains::from_libnetplan_error(&error));
             }
         }
+
         Ok(())
     }
 
@@ -130,14 +115,15 @@ impl Parser {
         let _ = file.flush();
         let _ = file.rewind();
 
-        unsafe {
-            let ret =
-                netplan_parser_load_nullable_fields(self.parser, file.as_raw_fd(), null_mut());
+        let mut netplan_error = ::std::ptr::null_mut::<NetplanError>();
 
-            if ret != 1 {
-                return Err(LibNetplanError::NetplanFileError(
-                    "load_nullable_fields failed".to_string(),
-                ));
+        let ret = unsafe {
+            netplan_parser_load_nullable_fields(self.parser, file.as_raw_fd(), &mut netplan_error)
+        };
+
+        if ret == 0 && !netplan_error.is_null() {
+            if let Some(error) = LibNetplanError::try_from_raw_error(netplan_error) {
+                return Err(NetplanErrorDomains::from_libnetplan_error(&error));
             }
         }
 
@@ -147,24 +133,25 @@ impl Parser {
     pub fn load_nullable_overrides(&mut self, yaml: &str, constraints: &str) -> NetplanResult<()> {
         let memfd = netplan_memfd_create().unwrap();
         let constraints_cstr = CString::new(constraints).unwrap();
+        let mut netplan_error = ::std::ptr::null_mut::<NetplanError>();
 
         let mut file = File::from(memfd);
         let _ = file.write(yaml.as_bytes());
         let _ = file.flush();
         let _ = file.rewind();
 
-        unsafe {
-            let ret = netplan_parser_load_nullable_overrides(
+        let ret = unsafe {
+            netplan_parser_load_nullable_overrides(
                 self.parser,
                 file.as_raw_fd(),
                 constraints_cstr.as_ptr(),
-                null_mut(),
-            );
+                &mut netplan_error,
+            )
+        };
 
-            if ret != 1 {
-                return Err(LibNetplanError::NetplanFileError(
-                    "load_nullable_overrides failed".to_string(),
-                ));
+        if ret == 0 && !netplan_error.is_null() {
+            if let Some(error) = LibNetplanError::try_from_raw_error(netplan_error) {
+                return Err(NetplanErrorDomains::from_libnetplan_error(&error));
             }
         }
 
@@ -277,7 +264,7 @@ network:
         assert!(parser_result.is_err());
 
         if let Err(error) = parser_result {
-            if let LibNetplanError::NetplanFileError(error_message) = error {
+            if let NetplanErrorDomains::NetplanFileError(error_message) = error {
                 assert!(error_message
                     .contains("Error in network definition: invalid boolean value 'badvalue'"));
             }
@@ -368,7 +355,7 @@ network:
         assert!(parser_result.is_err());
 
         if let Err(error) = parser_result {
-            if let LibNetplanError::NetplanFileError(error_message) = error {
+            if let NetplanErrorDomains::NetplanFileError(error_message) = error {
                 assert!(error_message
                     .contains("Error in network definition: invalid boolean value 'badvalue'"));
             }
@@ -462,7 +449,7 @@ address1=10.100.1.39/24"
         assert!(parser_result.is_err());
 
         if let Err(error) = parser_result {
-            if let LibNetplanError::NetplanFileError(error_message) = error {
+            if let NetplanErrorDomains::NetplanFileError(error_message) = error {
                 assert!(error_message.contains("Keyfile: cannot find connection.uuid"));
             }
         }

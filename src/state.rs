@@ -11,8 +11,8 @@ use crate::libnetplan::netplan_state_dump_yaml;
 use crate::libnetplan::netplan_state_import_parser_results;
 use crate::libnetplan::netplan_state_new;
 use crate::libnetplan::netplan_util_dump_yaml_subtree;
-use crate::libnetplan::LibNetplanError;
 use crate::libnetplan::NetplanError;
+use crate::libnetplan::NetplanErrorDomains;
 use crate::libnetplan::NetplanResult;
 use crate::libnetplan::NetplanState;
 use crate::libnetplan::{_netplan_netdef_pertype_iter_next, netplan_memfd_create};
@@ -47,9 +47,9 @@ impl State {
             if error == 0 {
                 if !error_message.is_null() {
                     if let Some(message) = error_get_message(error_message) {
-                        return Err(LibNetplanError::NetplanValidationError(message));
+                        return Err(NetplanErrorDomains::NetplanValidationError(message));
                     } else {
-                        return Err(LibNetplanError::NetplanValidationError(
+                        return Err(NetplanErrorDomains::NetplanValidationError(
                             "import parser state error".to_string(),
                         ));
                     }
@@ -121,7 +121,7 @@ impl State {
             );
 
             if ret == 0 {
-                return Err(LibNetplanError::NetplanFileError(
+                return Err(NetplanErrorDomains::NetplanFileError(
                     "update_yaml_hierarchy failed".to_string(),
                 ));
             }
@@ -144,9 +144,9 @@ impl State {
             if error == 0 {
                 if !error_message.is_null() {
                     if let Some(message) = error_get_message(error_message) {
-                        return Err(LibNetplanError::NetplanFileError(message));
+                        return Err(NetplanErrorDomains::NetplanFileError(message));
                     } else {
-                        return Err(LibNetplanError::NetplanFileError(
+                        return Err(NetplanErrorDomains::NetplanFileError(
                             "load hierarchy error".to_string(),
                         ));
                     }
@@ -185,7 +185,7 @@ impl Drop for State {
 }
 
 impl TryFrom<Parser> for State {
-    type Error = LibNetplanError;
+    type Error = NetplanErrorDomains;
     fn try_from(value: Parser) -> Result<Self, Self::Error> {
         let state = State::new();
         match state.import_parser_state(value) {
@@ -276,7 +276,7 @@ network:
         let state = State::new();
 
         if let Err(error) = state.import_parser_state(parser) {
-            if let LibNetplanError::NetplanValidationError(msg) = error {
+            if let NetplanErrorDomains::NetplanValidationError(msg) = error {
                 assert_eq!(msg, "vrf0: VRF routes table mismatch (1000 != 2000)");
             }
         } else {

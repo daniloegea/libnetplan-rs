@@ -12,13 +12,47 @@ use crate::netdef::NetdefType;
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 #[derive(Debug)]
-pub enum LibNetplanError {
-    NetplanParserError,
+pub enum NetplanErrorDomains {
+    NetplanGenericError,
+    NetplanParserError(String),
     NetplanValidationError(String),
     NetplanFileError(String),
 }
 
-pub type NetplanResult<T> = result::Result<T, LibNetplanError>;
+impl NetplanErrorDomains {
+    pub(crate) fn from_libnetplan_error(error: &LibNetplanError) -> Self {
+        match error.domain {
+            1 => NetplanErrorDomains::NetplanParserError(error.message.clone()),
+            2 => NetplanErrorDomains::NetplanValidationError(error.message.clone()),
+            3 => NetplanErrorDomains::NetplanFileError(error.message.clone()),
+            _ => NetplanErrorDomains::NetplanGenericError,
+        }
+    }
+}
+
+pub(crate) struct LibNetplanError {
+    pub(crate) code: u32,
+    pub(crate) domain: u32,
+    pub(crate) message: String,
+}
+
+impl LibNetplanError {
+    pub fn try_from_raw_error(error: *mut NetplanError) -> Option<Self> {
+        let message = error_get_message(error)?;
+        let error_code = error_get_code(error)?;
+
+        let domain = (error_code >> 32) as u32;
+        let code = error_code as u32;
+
+        Some(Self {
+            code,
+            domain,
+            message,
+        })
+    }
+}
+
+pub type NetplanResult<T> = result::Result<T, NetplanErrorDomains>;
 
 pub(crate) fn netdef_get_id(netdef: *const NetplanNetDefinition) -> Result<String, String> {
     let name_string = unsafe {
@@ -45,6 +79,10 @@ pub(crate) fn error_get_message(error: *mut GError) -> Option<String> {
         Ok(message) => Some(message),
         Err(_) => None,
     }
+}
+
+pub(crate) fn error_get_code(error: *mut GError) -> Option<u64> {
+    Some(unsafe { netplan_error_code(error as *mut GError) })
 }
 
 fn copy_string_realloc_call<F>(call: F, ptr: *const i8) -> Result<String, String>
@@ -96,11 +134,12 @@ pub(crate) fn netdef_get_type(netdef: *const NetplanNetDefinition) -> NetdefType
     }
 }
 
-/* Simple wrapper around libc's memfd_create to avoid importing other crates */
+/* Simple wrapper around libc's memfd_create to avoid importing other crates
+   memfd_create() is defined in netplan.h
+*/
 pub(crate) fn netplan_memfd_create() -> Result<OwnedFd, String> {
     unsafe {
         let name_cstr = CString::new("netplan_memfd").unwrap();
-        // memfd_create() is defined in netplan.h
         let ret = memfd_create(name_cstr.as_ptr(), 0);
 
         if ret >= 0 {
