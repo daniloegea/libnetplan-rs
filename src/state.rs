@@ -181,10 +181,17 @@ impl Drop for State {
     }
 }
 
+impl From<Parser> for State {
+    fn from(value: Parser) -> Self {
+        let state = State::new();
+        let _ = state.import_parser_state(value);
+        state
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::any::{Any, TypeId};
     use std::fs::{self, File};
     use std::io::Write;
     use std::os::unix::fs::PermissionsExt;
