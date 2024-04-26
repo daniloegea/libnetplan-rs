@@ -3,7 +3,6 @@ use std::fs::File;
 use std::io::Seek;
 use std::io::Write;
 use std::os::fd::AsRawFd;
-use std::os::fd::FromRawFd;
 use std::ptr::null_mut;
 
 use crate::libnetplan::error_get_message;
@@ -384,7 +383,7 @@ network:
       dhcp4: true";
 
         let parser = Parser::new();
-        let parser_result = parser.load_yaml_from_string(&yaml);
+        let _ = parser.load_yaml_from_string(&yaml);
 
         let state = State::new();
         state.import_parser_state(parser).unwrap();

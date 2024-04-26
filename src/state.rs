@@ -20,7 +20,7 @@ use crate::libnetplan::{
     _netplan_state_new_netdef_pertype_iter, netplan_state_update_yaml_hierarchy,
 };
 use crate::libnetplan::{error_get_message, netplan_state_write_yaml_file};
-use crate::netdef::{Netdef, NetdefType};
+use crate::netdef::Netdef;
 use crate::parser::Parser;
 
 pub struct State {
@@ -195,6 +195,7 @@ impl TryFrom<Parser> for State {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::netdef::NetdefType;
     use std::fs::{self, File};
     use std::io::Write;
     use std::os::unix::fs::PermissionsExt;
