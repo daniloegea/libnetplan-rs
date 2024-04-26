@@ -158,7 +158,7 @@ impl Parser {
                 null_mut(),
             );
 
-            if ret != 0 {
+            if ret != 1 {
                 return Err(LibNetplanError::NetplanFileError(
                     "load_nullable_overrides failed".to_string(),
                 ));
