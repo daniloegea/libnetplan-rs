@@ -181,11 +181,14 @@ impl Drop for State {
     }
 }
 
-impl From<Parser> for State {
-    fn from(value: Parser) -> Self {
+impl TryFrom<Parser> for State {
+    type Error = LibNetplanError;
+    fn try_from(value: Parser) -> Result<Self, Self::Error> {
         let state = State::new();
-        let _ = state.import_parser_state(value);
-        state
+        match state.import_parser_state(value) {
+            Ok(_) => Ok(state),
+            Err(err) => Err(err),
+        }
     }
 }
 
@@ -367,6 +370,21 @@ network:
 
         for expected in netdef_ids_expected {
             assert!(netdef_ids.contains(&expected.to_string()));
+        }
+    }
+
+    #[test]
+    fn test_state_try_from() {
+        let yaml = r"
+network:
+  ethernets:
+    eth0:
+      dhcp4: true";
+
+        let parser = create_parser(yaml);
+
+        if let Err(_) = State::try_from(parser) {
+            assert!(false, "load parser results failed");
         }
     }
 }
